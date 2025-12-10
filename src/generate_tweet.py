@@ -9,10 +9,30 @@ MAX_CHAR_LEN = 280
 
 
 def load_generator(model_path: str):
-    tokenizer = AutoTokenizer.from_pretrained(model_path)
-    tokenizer.pad_token = tokenizer.eos_token
-    model = AutoModelForCausalLM.from_pretrained(model_path)
-    return pipeline("text-generation", model=model, tokenizer=tokenizer)
+    """Load model and tokenizer, with helpful error messages."""
+    model_path_obj = Path(model_path)
+    
+    required_files = [
+        model_path_obj / "pytorch_model.bin",
+        model_path_obj / "config.json",
+        model_path_obj / "tokenizer_config.json",
+    ]
+    
+    missing = [f for f in required_files if not f.exists()]
+    if missing:
+        raise FileNotFoundError(
+            f"Model files missing from {model_path}:\n"
+            f"  Missing: {[f.name for f in missing]}\n"
+            f"  Run: python src/train_model.py"
+        )
+    
+    try:
+        tokenizer = AutoTokenizer.from_pretrained(model_path)
+        tokenizer.pad_token = tokenizer.eos_token
+        model = AutoModelForCausalLM.from_pretrained(model_path)
+        return pipeline("text-generation", model=model, tokenizer=tokenizer)
+    except Exception as e:
+        raise RuntimeError(f"Failed to load model: {e}")
 
 
 def trim_tweet(text: str) -> str:

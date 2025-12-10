@@ -33,17 +33,43 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
 
+    # ===== VALIDATION =====
+    train_path = Path(args.train_data)
+    test_path = Path(args.test_data)
+    tokenizer_path = Path(args.tokenizer)
+    
+    if not train_path.exists():
+        raise FileNotFoundError(f"Train dataset not found: {args.train_data}")
+    if not test_path.exists():
+        raise FileNotFoundError(f"Test dataset not found: {args.test_data}")
+    if not tokenizer_path.exists():
+        raise FileNotFoundError(f"Tokenizer not found: {args.tokenizer}")
+    
+    print(f"📂 Loading preprocessed data from {args.train_data}")
+    
+    # ===== LOAD DATA & MODEL =====
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer or args.model_name)
     tokenizer.pad_token = tokenizer.eos_token
 
     train_dataset = load_from_disk(args.train_data)
     test_dataset = load_from_disk(args.test_data)
+    
+    print(f"📊 Dataset Info:")
+    print(f"   - Training samples: {len(train_dataset)}")
+    print(f"   - Test samples: {len(test_dataset)}")
+    
+    if len(train_dataset) == 0:
+        raise ValueError("Training dataset is empty. Run preprocessing first.")
+    if len(test_dataset) == 0:
+        raise ValueError("Test dataset is empty. Run preprocessing first.")
 
+    print(f"🤖 Loading base model: {args.model_name}")
     model = AutoModelForCausalLM.from_pretrained(args.model_name)
     model.resize_token_embeddings(len(tokenizer))
 
     data_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
 
+    # ===== TRAINING CONFIG =====
     training_args = TrainingArguments(
         output_dir=args.output_dir,
         evaluation_strategy="epoch",
@@ -57,7 +83,15 @@ def main() -> None:
         save_total_limit=2,
         report_to="none",
         fp16=args.fp16,
+        logging_dir='./logs',
     )
+
+    print(f"⚙️ Training Config:")
+    print(f"   - Epochs: {args.epochs}")
+    print(f"   - Learning Rate: {args.learning_rate}")
+    print(f"   - Batch Size: {args.train_batch_size}")
+    print(f"   - FP16: {args.fp16}")
+    print(f"   - Output Dir: {args.output_dir}")
 
     trainer = Trainer(
         model=model,
@@ -68,11 +102,18 @@ def main() -> None:
         data_collator=data_collator,
     )
 
+    # ===== TRAINING =====
+    print(f"🚀 Starting training...")
     trainer.train()
+    
+    # ===== SAVE =====
+    output_path = Path(args.output_dir)
     trainer.save_model(args.output_dir)
     tokenizer.save_pretrained(args.output_dir)
 
-    print(f"Model saved to {Path(args.output_dir).resolve()}")
+    print(f"✅ Training complete!")
+    print(f"📦 Model saved to {output_path.resolve()}")
+    print(f"🎉 Ready for generation! Use: python src/generate_tweet.py --prompt 'YOUR_PROMPT'")
 
 
 if __name__ == "__main__":

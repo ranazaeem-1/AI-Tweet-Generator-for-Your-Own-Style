@@ -1,78 +1,154 @@
-<img width="1150" height="815" alt="image" src="https://github.com/user-attachments/assets/73ee86ee-50e3-4274-b35f-455e007b83c3" />
+# 🐦✨ AI Tweet Generator for Your Own Style
 
-AI Tweet Generator
-===================
+> **Create tweets in your unique style using GPT-2, all from a beautiful Streamlit app!**
 
-Generate tweets in your style by fine-tuning GPT-2 on your own timeline data.
+---
 
-Project structure
------------------
+## 🚀 Features
+
+- 🔐 Secure credential management (.env support)
+- 📥 Fetch tweets from your timeline (X API)
+- 🧹 Preprocess and clean tweets
+- 🏋️‍♂️ Fine-tune GPT-2 on your data
+- ✍️ Generate tweets with custom prompts
+- 🎛️ Advanced generation controls
+- 📚 Tweet history and export
+- ⚠️ Free tier API warnings
+- 🖥️ All-in-one Streamlit UI (no scripts needed!)
+
+---
+
+## 📦 Project Structure
+
 ```
-AI_Tweet_Generator/
-├── data/                    # Raw and processed data
-│   └── tweets_data.csv      # Exported tweets (created by fetch_data.py)
-├── model/
-│   └── fine_tuned_model/    # Saved fine-tuned model artifacts
-│       └── pytorch_model.bin
-├── src/                     # Core scripts
+AI-Tweet-Generator-for-Your-Own-Style/
+├── app/
+│   └── app.py            # Streamlit web app (run everything here!)
+├── src/                  # Legacy CLI scripts (not needed for UI)
 │   ├── fetch_data.py
 │   ├── preprocess_data.py
 │   ├── train_model.py
 │   └── generate_tweet.py
-├── app/
-│   └── app.py               # Streamlit UI
-├── requirements.txt
-└── README.md
+├── model/
+│   └── fine_tuned_model/ # Your trained model
+├── data/
+│   └── tweets_data.csv   # Fetched tweets
+├── requirements.txt      # Dependencies
+├── .env.example          # Credential template
+└── README_NEW.md         # This file
 ```
 
-Setup
------
-1) Install dependencies (ideally in a virtualenv):
-```
-pip install -r requirements.txt
-```
+---
 
-2) Set Twitter API credentials (OAuth 1.0a):
-```
-set TWITTER_API_KEY=...
-set TWITTER_API_KEY_SECRET=...
-set TWITTER_ACCESS_TOKEN=...
-set TWITTER_ACCESS_TOKEN_SECRET=...
-```
+## 🌈 Quick Start (Streamlit UI)
 
-Usage
------
-1) Fetch up to 3,000 tweets to CSV:
-```
-python src/fetch_data.py --user your_handle --output data/tweets_data.csv --max 3000
-```
-Flags: `--include-rts` to include retweets, `--include-replies` to keep replies, or pass keys via CLI (`--api-key`, etc.).
+1. **Install dependencies**
+   ```bash
+   pip install -r requirements.txt
+   ```
+2. **Set up your credentials**
+   - Copy `.env.example` to `.env`
+   - Paste your X API keys in `.env`
+3. **Launch the app**
+   ```bash
+   streamlit run app/app.py
+   ```
+4. **Use the UI!**
+   - Enter your credentials (auto-loaded from `.env`)
+   - Enter your Twitter handle
+   - Click through: **Fetch → Preprocess → Train → Generate**
+   - Enjoy your personalized AI tweets!
 
-2) Preprocess/tokenize (optional cleaning of URLs/mentions/hashtags):
-```
-python src/preprocess_data.py --input data/tweets_data.csv --output-dir data/processed --clean
-```
+---
 
-3) Fine-tune distilgpt2:
-```
-python src/train_model.py --train-data data/processed/train_data --test-data data/processed/test_data --output-dir model/fine_tuned_model
-```
-Adjust `--epochs`, `--train-batch-size`, `--learning-rate` as needed; add `--fp16` if supported.
+## 🖥️ Streamlit App Workflow
 
-4) Generate tweets from the fine-tuned model:
-```
-python src/generate_tweet.py --prompt "Today I learned" --model-path model/fine_tuned_model --num-tweets 3
-```
+| Step         | What Happens?                  |
+|--------------|-------------------------------|
+| 1️⃣ Fetch    | Downloads your tweets         |
+| 2️⃣ Preprocess | Cleans & tokenizes tweets     |
+| 3️⃣ Train    | Fine-tunes GPT-2 on your data |
+| 4️⃣ Generate | Creates tweets in your style  |
 
-5) Streamlit UI:
-```
-streamlit run app/app.py
-```
+**No manual script running required!**
 
-Notes
------
-- Defaults use paths relative to the repository root even when run from inside `src/`.
-- Ensure GPU/torch setup for faster training; CPU works for small experiments but will be slow.
+---
 
+## ⚠️ X API Free Tier Limitations
 
-developed by azameffendi 
+| Limit                | Value      | Impact                |
+|----------------------|------------|-----------------------|
+| Tweets to read/month | 100        | Limited training data |
+| Tweets to post/month | 50         | Limited testing       |
+| Timeline access      | v1.1 only  | Some endpoints blocked|
+
+**If you see 403/453 errors:**
+- You are on the Free tier. Upgrade to Basic+ for full timeline access: [X Pricing](https://developer.x.com/en/pricing)
+- You can only fetch tweets from your own account, not others.
+
+---
+
+## 💡 Tips for Best Results
+
+- **Use 50+ tweets** for good style capture
+- **Clean your data** (remove URLs/mentions)
+- **Adjust temperature** for creativity
+- **Set a seed** for reproducible results
+- **Train on recent tweets** for current style
+
+---
+
+## 🛠️ Troubleshooting
+
+- **Missing environment variable:**
+  - Set your API keys in `.env` or sidebar
+- **403/453 Forbidden:**
+  - Upgrade your X API tier
+- **Model not found:**
+  - Run the training step in the app
+- **CUDA out of memory:**
+  - Lower batch size or use CPU
+
+---
+
+## 📚 FAQ
+
+**Q: Can I use this with other LLMs?**  
+A: Yes! Swap `distilgpt2` for any HuggingFace model.
+
+**Q: How many tweets do I need?**  
+A: 20-30 minimum, 50-100 ideal.
+
+**Q: Can I deploy this online?**  
+A: Yes! Streamlit Cloud, Hugging Face Spaces, etc.
+
+**Q: Does this work offline?**  
+A: Yes! Only fetching tweets needs internet.
+
+---
+
+## 👤 Author
+
+Developed by **Azam Effendi** (@effendii69)
+
+---
+
+## 🏁 Next Steps
+
+1. 🚀 Train your model in the app
+2. ✨ Generate tweets
+3. 📤 Share your results
+4. 🛠️ Tune parameters for better style
+5. 🌍 Deploy for friends to use
+
+---
+
+## 🛡️ Security
+
+- Never commit `.env` or API keys
+- Add `data/*.csv` and `model/*` to `.gitignore`
+- Rotate credentials if compromised
+
+---
+
+## 📢 Enjoy your personalized AI Tweet Generator! 🐦✨

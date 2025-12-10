@@ -3,8 +3,12 @@ import os
 from pathlib import Path
 from typing import List
 
+from dotenv import load_dotenv
 import pandas as pd
 import tweepy
+
+# Load environment variables from .env file
+load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 MIN_REQUEST = 1
