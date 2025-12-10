@@ -1,4 +1,4 @@
-![Uploading image.png…]()
+<img width="1150" height="815" alt="image" src="https://github.com/user-attachments/assets/73ee86ee-50e3-4274-b35f-455e007b83c3" />
 
 AI Tweet Generator
 ===================
