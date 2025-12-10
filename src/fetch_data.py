@@ -7,7 +7,8 @@ import pandas as pd
 import tweepy
 
 BASE_DIR = Path(__file__).resolve().parents[1]
-MIN_TWEETS = 50
+MIN_REQUEST = 1
+MAX_FREE_TWEETS = 50  # Free tier cap per month for timeline reads
 
 
 def _get_env(key: str) -> str:
@@ -34,11 +35,11 @@ def authenticate_from_args(args: argparse.Namespace) -> tweepy.API:
 def fetch_user_tweets(
     api: tweepy.API,
     screen_name: str,
-    max_items: int = 3000,
+    max_items: int = 100,
     include_rts: bool = False,
     exclude_replies: bool = True,
 ) -> List[dict]:
-    target_items = max(max_items, MIN_TWEETS)
+    target_items = max(min(max_items, MAX_FREE_TWEETS), MIN_REQUEST)
     cursor = tweepy.Cursor(
         api.user_timeline,
         screen_name=screen_name,
@@ -49,26 +50,38 @@ def fetch_user_tweets(
     )
 
     tweets: List[dict] = []
-    for tweet in cursor.items(target_items):
-        tweets.append(
-            {
-                "tweet_text": tweet.full_text.replace("\n", " ").strip(),
-                "date": tweet.created_at.isoformat(),
-                "id": tweet.id_str,
-            }
-        )
+    try:
+        for tweet in cursor.items(target_items):
+            tweets.append(
+                {
+                    "tweet_text": tweet.full_text.replace("\n", " ").strip(),
+                    "date": tweet.created_at.isoformat(),
+                    "id": tweet.id_str,
+                }
+            )
+    except tweepy.TweepyException as exc:
+        code = getattr(exc, "api_code", None)
+        if code == 88:
+            raise RuntimeError("Rate limit exceeded. Free tier allows ~100 posts/month; try again later.") from exc
+        if code in (403, 453):
+            raise RuntimeError(
+                "Access forbidden for timeline reads. Free tier limits apply; Basic/Pro/Elevated access may be required."
+            ) from exc
+        raise
     return tweets
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Fetch up to 3,000 tweets from a user timeline.")
+    parser = argparse.ArgumentParser(
+        description="Fetch tweets from a user timeline (free-tier safe defaults capped at 100/month)."
+    )
     parser.add_argument("--user", required=True, help="Twitter handle without @ (screen name).")
     parser.add_argument("--output", default=str(BASE_DIR / "data" / "tweets_data.csv"), help="Path to write the CSV file.")
     parser.add_argument(
         "--max",
         type=int,
-        default=3000,
-        help=f"Maximum number of tweets to fetch (at least {MIN_TWEETS} will be requested).",
+        default=MAX_FREE_TWEETS,
+        help=f"Maximum number of tweets to fetch (capped at free-tier limit {MAX_FREE_TWEETS}).",
     )
     parser.add_argument("--include-rts", action="store_true", help="Include retweets in the export.")
     parser.add_argument("--include-replies", action="store_true", help="Include replies (off by default).")

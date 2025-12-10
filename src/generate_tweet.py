@@ -2,16 +2,16 @@ import argparse
 from pathlib import Path
 from typing import List
 
-from transformers import GPT2LMHeadModel, GPT2Tokenizer, pipeline, set_seed
+from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline, set_seed
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 MAX_CHAR_LEN = 280
 
 
 def load_generator(model_path: str):
-    tokenizer = GPT2Tokenizer.from_pretrained(model_path)
+    tokenizer = AutoTokenizer.from_pretrained(model_path)
     tokenizer.pad_token = tokenizer.eos_token
-    model = GPT2LMHeadModel.from_pretrained(model_path)
+    model = AutoModelForCausalLM.from_pretrained(model_path)
     return pipeline("text-generation", model=model, tokenizer=tokenizer)
 
 

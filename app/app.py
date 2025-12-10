@@ -1,9 +1,10 @@
 from pathlib import Path
-from typing import List
+from typing import List, Tuple
 
 import streamlit as st
 import tweepy
-from transformers import GPT2LMHeadModel, GPT2Tokenizer, pipeline, set_seed
+from tweepy import TweepyException
+from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline, set_seed
 
 
 MODEL_DIR = Path(__file__).resolve().parent.parent / "model" / "fine_tuned_model"
@@ -11,21 +12,26 @@ MAX_CHAR_LEN = 280
 STYLE_TEMPS = {"Witty": 0.9, "Serious": 0.5, "Casual": 0.7}
 DEFAULT_FETCH_MAX = 3000
 MIN_FETCH = 50
+MONTHLY_POST_LIMIT = 100
 
 
 @st.cache_resource
 def load_generator(model_path: Path = MODEL_DIR):
-    tokenizer = GPT2Tokenizer.from_pretrained(model_path)
+    tokenizer = AutoTokenizer.from_pretrained(model_path)
     tokenizer.pad_token = tokenizer.eos_token
-    model = GPT2LMHeadModel.from_pretrained(model_path)
+    model = AutoModelForCausalLM.from_pretrained(model_path)
     return pipeline("text-generation", model=model, tokenizer=tokenizer)
 
 
 def build_twitter_api(
     api_key: str, api_secret: str, access_token: str, access_secret: str
-) -> tweepy.API:
+) -> Tuple[tweepy.API, tweepy.User]:
     auth = tweepy.OAuth1UserHandler(api_key, api_secret, access_token, access_secret)
-    return tweepy.API(auth, wait_on_rate_limit=True)
+    api = tweepy.API(auth, wait_on_rate_limit=True)
+    user = api.verify_credentials()
+    if not user:
+        raise TweepyException("Authentication failed; verify credentials.")
+    return api, user
 
 
 def fetch_user_tweets(
@@ -45,14 +51,17 @@ def fetch_user_tweets(
         count=200,
     )
     tweets: List[dict] = []
-    for tweet in cursor.items(target_items):
-        tweets.append(
-            {
-                "tweet_text": tweet.full_text.replace("\n", " ").strip(),
-                "date": tweet.created_at.isoformat(),
-                "id": tweet.id_str,
-            }
-        )
+    try:
+        for tweet in cursor.items(target_items):
+            tweets.append(
+                {
+                    "tweet_text": tweet.full_text.replace("\n", " ").strip(),
+                    "date": tweet.created_at.isoformat(),
+                    "id": tweet.id_str,
+                }
+            )
+    except TweepyException as exc:
+        raise exc
     return tweets
 
 
@@ -96,6 +105,8 @@ def init_state() -> None:
         st.session_state.latest = []
     if "fetched_tweets" not in st.session_state:
         st.session_state.fetched_tweets = []
+    if "auth_user" not in st.session_state:
+        st.session_state.auth_user = None
 
 
 def main() -> None:
@@ -118,7 +129,9 @@ def main() -> None:
             st.warning("Please enter all Twitter API credentials and a handle to fetch tweets.")
         else:
             try:
-                api = build_twitter_api(api_key, api_secret, access_token, access_secret)
+                api, user = build_twitter_api(api_key, api_secret, access_token, access_secret)
+                st.session_state.auth_user = user.screen_name
+                st.success(f"Authentication successful for @{user.screen_name}")
                 with st.spinner("Fetching tweets..."):
                     tweets = fetch_user_tweets(
                         api=api,
@@ -128,7 +141,28 @@ def main() -> None:
                         exclude_replies=not include_replies,
                     )
                 st.session_state.fetched_tweets = tweets
-                st.success(f"Fetched {len(tweets)} tweets.")
+                if tweets:
+                    st.success(f"Fetched {len(tweets)} tweets.")
+                    if len(tweets) < MIN_FETCH:
+                        st.info(f"Only {len(tweets)} tweets available for this account (requested at least {MIN_FETCH}).")
+                    st.info(f"Reminder: Free tiers often cap timeline reads to ~{MONTHLY_POST_LIMIT} posts per month.")
+                else:
+                    st.warning(
+                        "No tweets returned. Check if the account has tweets, "
+                        "if access is limited (free tier often caps at 100 posts/month), "
+                        "or if timeline visibility is restricted."
+                    )
+            except TweepyException as exc:
+                code = getattr(exc, "api_code", None)
+                if code == 88:
+                    st.error("Rate limit exceeded. Please wait and try again later.")
+                elif code in (453, 403):
+                    st.error(
+                        "Access forbidden or limited. This endpoint requires Basic/Pro/Elevated access. "
+                        "Upgrade your X developer plan to read timelines: https://developer.x.com/en/portal/product"
+                    )
+                else:
+                    st.error(f"Failed to fetch tweets: {exc}")
             except Exception as exc:
                 st.error(f"Failed to fetch tweets: {exc}")
 
@@ -136,6 +170,8 @@ def main() -> None:
         st.subheader(f"Fetched tweets preview (first 5 of {len(st.session_state.fetched_tweets)})")
         for tweet in st.session_state.fetched_tweets[:5]:
             st.write(f"- {tweet['tweet_text']}")
+    elif handle.strip():
+        st.info("No tweets fetched yet. Ensure credentials are correct and fetch to preview.")
 
     st.header("Generate Tweets")
     prompt = st.text_input("Enter a tweet prompt:")

@@ -3,9 +3,9 @@ from pathlib import Path
 
 from datasets import load_from_disk
 from transformers import (
+    AutoModelForCausalLM,
+    AutoTokenizer,
     DataCollatorForLanguageModeling,
-    GPT2LMHeadModel,
-    GPT2Tokenizer,
     Trainer,
     TrainingArguments,
 )
@@ -33,13 +33,13 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
 
-    tokenizer = GPT2Tokenizer.from_pretrained(args.tokenizer or args.model_name)
+    tokenizer = AutoTokenizer.from_pretrained(args.tokenizer or args.model_name)
     tokenizer.pad_token = tokenizer.eos_token
 
     train_dataset = load_from_disk(args.train_data)
     test_dataset = load_from_disk(args.test_data)
 
-    model = GPT2LMHeadModel.from_pretrained(args.model_name)
+    model = AutoModelForCausalLM.from_pretrained(args.model_name)
     model.resize_token_embeddings(len(tokenizer))
 
     data_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
